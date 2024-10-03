@@ -23,8 +23,8 @@
 #define MOTOR_1       23 // PWM motor driver
 
 // VARIABLES
-bool battery_state_curr = 0; // 1 if battery is in place (hall sensor active)
-bool battery_state_prev = 0; // 1 if battery is in place (hall sensor active)
+bool hall_state_curr = 0; // 1 if battery is in place (hall sensor active)
+bool hall_state_prev = 0; // 1 if battery is in place (hall sensor active)
 
 // Runs Once, required
 void setup() {
@@ -52,7 +52,7 @@ void loop() {
   check_hall();
   
   // only run this code while the battery is inserted
-  if (battery_state_curr == 1)
+  if (hall_state_curr == 1)
   {
     bool p1_selected = digitalRead(IO_SEL1); // check the selector switch
     digitalWrite(IO_PATH3, HIGH); // turn on the path from the battery to the switch
@@ -93,16 +93,16 @@ void loop() {
 
 // Checks if the hall sensor state has changed
 void check_hall() {
-  battery_state_curr = digitalRead(IO_HALL); // check current battery state
+  hall_state_curr = digitalRead(IO_HALL); // check current battery state
 
   // if the hall sensor goes from inactive to active
-  if ((battery_state_curr == 1) && (battery_state_prev == 0)) {
+  if ((hall_state_curr == 1) && (hall_state_prev == 0)) {
 
     // zzztodo what happens if the battery is inserted? play audio?
     play_audio();
   }
 
-  battery_state_prev = battery_state_curr; // make the current battery state the previous state
+  hall_state_prev = hall_state_curr; // make the current battery state the previous state
 }
 
 // Plays audio from SD card
