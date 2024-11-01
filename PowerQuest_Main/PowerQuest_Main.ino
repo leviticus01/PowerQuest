@@ -2,17 +2,17 @@
 #include <math.h>
 
 // ESP32 PIN DEFINITIONS
-#define IO_POT        A0  // Motor speed potentiometer (MOVED FROM PIN 21)
-#define SD_DI         1 // removed
+#define IO_POT        A1  // Motor speed potentiometer (MOVED FROM PIN 21)
+#define D_GND_1       1 // Digital ground pin for convenience
 #define IO_MOTION     2 // Motion sensor
 #define IO_LIGHT      3 // Light peripheral
 #define I2S_DOUT      4 // may need to be 21
 #define I2S_BCLK      5 // may need to be 22
 #define I2S_LRCLK     6 // may need to be 23
-#define SD_CLK        7 // removed
-#define SD_CS         8 // removed
+#define SD_CLK        7 // not in use
+#define D_3V3_8       8 // 3.3V power for convenience =
 #define IO_SEL1       10 // Peripheral 1 selected with switch
-#define IO_SEL2       11 // Peripheral 2 selected with switch (technically unused, can be applied elsewhere if needed)
+#define D_GND_11      11 // Digital ground pin for convenience
 #define IO_HALL       15 // Hall sensor
 #define IO_PATH3      18 // LED path 3
 #define IO_PATH2      19 // LED path 2
@@ -31,6 +31,8 @@ bool hall_state_prev = 0; // 1 if battery is in place (hall sensor active)
 // Runs Once, required
 void setup() {
   
+  Serial.begin(115200);
+
   // I2S configuration
   i2s_config_t i2s_config = {
     .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
@@ -62,7 +64,6 @@ void setup() {
   pinMode(IO_POT, INPUT);
   pinMode(IO_MOTION, INPUT);
   pinMode(IO_SEL1, INPUT);
-  pinMode(IO_SEL2, INPUT);
   pinMode(IO_HALL, INPUT);
 
   // Set output pin modes
@@ -72,26 +73,39 @@ void setup() {
   pinMode(IO_PATH1, OUTPUT);
   pinMode(MOTOR_1, OUTPUT);
   pinMode(MOTOR_2, OUTPUT);
+
+  // Set digital ground pins
+  pinMode(D_GND_11, OUTPUT);
+  digitalWrite(D_GND_11, LOW);
+
+  digitalWrite(IO_LIGHT, LOW);
+  analogWrite(MOTOR_1, 0);
+  digitalWrite(MOTOR_2, LOW);
+  digitalWrite(IO_PATH1, LOW);
+  digitalWrite(IO_PATH2, LOW);
+  digitalWrite(IO_PATH3, LOW);
+
 }
 
 // MAIN LOOP
 void loop() {
 
-  // always check if the hall sensor is active
-  check_hall();
+
   
   // only run this code while the battery is inserted
   if (hall_state_curr == 1) {
+    //Serial.println("Hall ON");
     bool p1_selected = digitalRead(IO_SEL1); // check the selector switch
     digitalWrite(IO_PATH3, HIGH); // turn on the path from the battery to the switch
 
     // peripheral 1 code (light)
     if(p1_selected == 1) {
+      Serial.println("Light Selected");
 
       // update LED paths, turn off motor peripheral
       digitalWrite(IO_PATH1, HIGH);
       digitalWrite(IO_PATH2, LOW);
-      digitalWrite(MOTOR_1, LOW);
+      analogWrite(MOTOR_1, 0);
       digitalWrite(MOTOR_2, LOW);
 
       // motion/light peripheral functionality
@@ -101,6 +115,7 @@ void loop() {
 
     // peripheral 2 code (motor)
     else {
+      //Serial.println("motor Selected");
 
       // update LED paths, turn off light peripheral
       digitalWrite(IO_PATH2, HIGH);
@@ -116,23 +131,28 @@ void loop() {
   // when the battery is removed, turn everything off
   else
   {
+    Serial.println("Hall OFF");
     digitalWrite(IO_LIGHT, LOW);
-    digitalWrite(MOTOR_1, LOW);
+    analogWrite(MOTOR_1, 0);
     digitalWrite(MOTOR_2, LOW);
     digitalWrite(IO_PATH1, LOW);
     digitalWrite(IO_PATH2, LOW);
     digitalWrite(IO_PATH3, LOW);
   }
+
+  // always check if the hall sensor is active
+  check_hall();
 }
 
 // Checks if the hall sensor state has changed
 void check_hall() {
-  hall_state_curr = digitalRead(IO_HALL); // check current battery state
+  hall_state_curr = !digitalRead(IO_HALL); // check current battery state
 
   // if the hall sensor goes from inactive to active
   if ((hall_state_curr == 1) && (hall_state_prev == 0)) {
 
     // zzztodo what happens if the battery is inserted? play audio?
+    //digitalWrite(IO_PATH3, HIGH);
     playAudio_arp();
   }
 
@@ -156,6 +176,7 @@ void motor_peripheral() {
   // get raw potentiometer data and map it to the PWM rate
   int pot_raw = analogRead(IO_POT);
   int pwm_rate = map(pot_raw,0,3500,0,255);
+  Serial.println(pwm_rate);
 
   // limit minimum pwm rate to 0
   if(pwm_rate < 0) {
