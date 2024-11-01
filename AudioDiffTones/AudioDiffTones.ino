@@ -3,9 +3,9 @@
 
 // I2S configuration
 #define I2S_NUM         I2S_NUM_0
-#define I2S_BCLK        22
-#define I2S_LRCLK       23
-#define I2S_DOUT        21
+#define I2S_BCLK        5 //prev 22
+#define I2S_LRCLK       6 //prev 23
+#define I2S_DOUT        4 //prev 21
 #define SAMPLE_RATE     44100
 
 void setup() {
