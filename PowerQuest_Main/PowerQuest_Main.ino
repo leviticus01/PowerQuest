@@ -1,3 +1,8 @@
+// PowerQuest Main Program
+// Developed by Levi Tucker & Jamya Mitchell
+// ECE 3011
+// FALL 2024
+
 #include <driver/i2s.h>
 #include <math.h>
 
@@ -5,18 +10,18 @@
 #define IO_POT        A1  // Motor speed potentiometer (MOVED FROM PIN 21)
 #define D_GND_1       1 // Digital ground pin for convenience
 #define IO_MOTION     2 // Motion sensor
-#define IO_LIGHT      3 // Light peripheral
-#define I2S_DOUT      4 // may need to be 21
-#define I2S_BCLK      5 // may need to be 22
-#define I2S_LRCLK     6 // may need to be 23
-#define SD_CLK        7 // not in use
-#define D_3V3_8       8 // 3.3V power for convenience =
+#define IO_LIGHT      3 // Light peripheral (white led)
+#define I2S_DOUT      4 // Data to I2S amp
+#define I2S_BCLK      5 // BCLK to I2S amp
+#define I2S_LRCLK     6 // LRC to I2S amp
+#define SD_CLK        7 // UNUSED
+#define D_3V3_8       8 // 3.3V power for convenience
 #define IO_SEL1       10 // Peripheral 1 selected with switch
 #define D_GND_11      11 // Digital ground pin for convenience
 #define IO_HALL       15 // Hall sensor
-#define IO_PATH3      18 // LED path 3
-#define IO_PATH2      19 // LED path 2
-#define IO_PATH1      20 // LED path 1
+#define IO_PATH3      18 // LED path 3 (from battery to switch)
+#define IO_PATH2      19 // LED path 2 (from switch to P1)
+#define IO_PATH1      20 // LED path 1 (from switch to P2)
 #define MOTOR_2       22 // PWM motor driver
 #define MOTOR_1       23 // PWM motor driver
 
@@ -24,14 +29,16 @@
 #define I2S_NUM       I2S_NUM_0
 #define SAMPLE_RATE   44100
 
-// VARIABLES
+// VARIABLES (for detecting state changes)
 bool hall_state_curr = 0; // 1 if battery is in place (hall sensor active)
 bool hall_state_prev = 0; // 1 if battery is in place (hall sensor active)
+bool switch_state_prev = 0;
 
 // Runs Once, required
 void setup() {
   
-  Serial.begin(115200);
+  // Serial for debugging
+  //Serial.begin(115200);
 
   // I2S configuration
   i2s_config_t i2s_config = {
@@ -85,6 +92,8 @@ void setup() {
   digitalWrite(IO_PATH2, LOW);
   digitalWrite(IO_PATH3, LOW);
 
+  switch_state_prev = digitalRead(IO_SEL1);
+
 }
 
 // MAIN LOOP
@@ -94,33 +103,50 @@ void loop() {
   
   // only run this code while the battery is inserted
   if (hall_state_curr == 1) {
+    // for debugging
     //Serial.println("Hall ON");
-    bool p1_selected = digitalRead(IO_SEL1); // check the selector switch
+
+    bool switch_state_curr = digitalRead(IO_SEL1); // check the selector switch
     digitalWrite(IO_PATH3, HIGH); // turn on the path from the battery to the switch
 
     // peripheral 1 code (light)
-    if(p1_selected == 1) {
-      Serial.println("Light Selected");
+    if(switch_state_curr == 1) {
+      //Serial.println("Light Selected");
 
       // update LED paths, turn off motor peripheral
-      digitalWrite(IO_PATH1, HIGH);
-      digitalWrite(IO_PATH2, LOW);
       analogWrite(MOTOR_1, 0);
       digitalWrite(MOTOR_2, LOW);
+      digitalWrite(IO_PATH1, HIGH);
+      digitalWrite(IO_PATH2, LOW);
 
-      // motion/light peripheral functionality
+      // plays audio on switch change
+      if(switch_state_prev == 0) {
+        playAudio_rand();
+        switch_state_prev = switch_state_curr;
+      }
+
+
+
+      // motion & light peripheral functionality
       light_peripheral();
 
     }
 
     // peripheral 2 code (motor)
     else {
+      // for debugging
       //Serial.println("motor Selected");
 
       // update LED paths, turn off light peripheral
       digitalWrite(IO_PATH2, HIGH);
       digitalWrite(IO_PATH1, LOW);
       digitalWrite(IO_LIGHT, LOW);
+
+      // plays audio on switch change
+      if(switch_state_prev == 1) {
+        playAudio_rand();
+        switch_state_prev = switch_state_curr;
+      }
 
       // motor peripheral functionality
       motor_peripheral();
@@ -131,7 +157,8 @@ void loop() {
   // when the battery is removed, turn everything off
   else
   {
-    Serial.println("Hall OFF");
+    // for debugging
+    //Serial.println("Hall OFF");
     digitalWrite(IO_LIGHT, LOW);
     analogWrite(MOTOR_1, 0);
     digitalWrite(MOTOR_2, LOW);
@@ -151,8 +178,7 @@ void check_hall() {
   // if the hall sensor goes from inactive to active
   if ((hall_state_curr == 1) && (hall_state_prev == 0)) {
 
-    // zzztodo what happens if the battery is inserted? play audio?
-    //digitalWrite(IO_PATH3, HIGH);
+    digitalWrite(IO_PATH3, HIGH);
     playAudio_arp();
   }
 
